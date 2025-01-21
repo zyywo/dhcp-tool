@@ -333,16 +333,16 @@ fn request_ip_from_dhcp_server(
 #[command(disable_help_flag = true)]
 #[command(disable_version_flag = true)]
 struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-
     /// 打印帮助信息
     #[arg(short, long, action = ArgAction::Help)]
-    help: bool,
+    help: Option<bool>,
 
     /// 打印版本
     #[arg(short, long, action = ArgAction::Version)]
-    version: bool,
+    version: Option<bool>,
+
+    #[command(subcommand)]
+    command: Commands,
 }
 
 #[derive(Subcommand)]
@@ -352,8 +352,8 @@ enum Commands {
 
     /// 检查网络内有哪些DHCP服务器
     Detect {
-        /// 网卡编号，使用list命令获取网卡编号
-        #[arg(short, long)]
+        /// 网卡编号（不能使用无线网卡），使用list命令获取网卡编号
+        #[arg(short, long, value_name = "INDEX")]
         interface: u32,
 
         /// 超时时间（秒）
@@ -364,63 +364,72 @@ enum Commands {
 
         /// 发送报文的源IP
         #[arg(long)]
+        #[arg(value_name("IP"))]
         #[arg(default_value_t = String::from("0.0.0.0"))]
         ip_src: String,
 
         /// 发送报文的源MAC
         #[arg(long)]
+        #[arg(value_name("MAC"))]
         #[arg(default_value_t = String::from("00:50:56:00:00:00"))]
         mac_src: String,
 
         /// 发送报文的目的IP
         #[arg(long)]
+        #[arg(value_name("IP"))]
         #[arg(default_value_t = String::from("255.255.255.255"))]
         ip_dst: String,
 
         /// 发送报文的目的MAC
         #[arg(long)]
+        #[arg(value_name("MAC"))]
         #[arg(default_value_t = String::from("ff:ff:ff:ff:ff:ff"))]
         mac_dst: String,
     },
 
     /// 向指定的DHCP服务器发送指定次数的request请求
     Exploit {
-        /// 网卡编号，使用list命令获取网卡编号
-        #[arg(short, long, value_name = "index")]
+        /// 网卡编号（不能使用无线网卡），使用list命令获取网卡编号
+        #[arg(short, long, value_name = "INDEX")]
         interface: u32,
 
         /// 发送的DHCP请求次数
         #[arg(short, long)]
         #[arg(default_value_t = 256)]
+        #[arg(value_name("NUM"))]
         #[arg(value_parser = clap::value_parser!(u32).range(1..))]
         count: u32,
 
         /// 发送报文源MAC的OUI（MAC地址的前3个字节）
         #[arg(long)]
+        #[arg(value_name("MACOUI"))]
         #[arg(default_value_t = String::from("00:50:56"))]
         mac_oui: String,
 
         /// 发送报文的源IP
         #[arg(long)]
+        #[arg(value_name("IP"))]
         #[arg(default_value_t = String::from("0.0.0.0"))]
         ip_src: String,
 
         /// 发送报文的目的IP
         #[arg(long)]
+        #[arg(value_name("IP"))]
         #[arg(default_value_t = String::from("255.255.255.255"))]
         ip_dst: String,
 
         /// 发送报文的目的MAC
         #[arg(long)]
+        #[arg(value_name("MAC"))]
         #[arg(default_value_t = String::from("ff:ff:ff:ff:ff:ff"))]
         mac_dst: String,
 
         /// 目标DHCP服务器的IP地址
-        #[arg(long = "tip", value_name = "IP")]
+        #[arg(long = "server", value_name = "IP")]
         target_server_ip: String,
 
         /// 目标DHCP服务器的MAC地址（可不设置）
-        #[arg(long = "tmac", value_name = "MAC")]
+        #[arg(long = "server-mac", value_name = "MAC")]
         target_server_mac: Option<String>,
 
         /// 超时时间（秒）
@@ -438,12 +447,12 @@ fn main() {
         Commands::List {} => {
             for i in datalink::interfaces() {
                 println!(
-                    "网卡编号:{}，IP：{}，MAC：{}，名称：{}，描述：{}",
+                    "网卡编号:{:2}，IP：{:19}，MAC：{:17}，描述：{}，名称：{}",
                     i.index,
-                    i.ips[0],
-                    i.mac.unwrap(),
+                    i.ips[0].to_string(),
+                    i.mac.unwrap().to_string(),
+                    i.description,
                     i.name,
-                    i.description
                 )
             }
         }

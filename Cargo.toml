@@ -1,8 +1,8 @@
 [package]
 name = "dhcp_client"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
-description = "检查网络内有哪些DHCP服务器，向指定的DHCP服务器发送request请求，可以指定发送的请求次数。"
+description = "检查网络内有哪些DHCP服务器，向指定的DHCP服务器发送request请求，可以指定发送的请求次数，\n提示：不能使用无线网卡。"
 
 [dependencies]
 clap = { version = "4.5.26", features = ["derive"] }
