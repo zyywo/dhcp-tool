@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use core::net::Ipv4Addr;
 use dhcp_client::utils::{mac_to_u8, u16_to_u8, u32_to_u8, u8_to_mac, udp_ip_checksum};
 use dhcproto::v4::Message;
@@ -281,11 +281,16 @@ fn request_ip_from_dhcp_server(
     );
 
     // dhcp request
-    let offer_msg =
-        match recive_dhcp_packet(&mut rx, target_server_ip, target_server_mac, xid, timeout_secs) {
-            Some(x) => x,
-            None => return None,
-        };
+    let offer_msg = match recive_dhcp_packet(
+        &mut rx,
+        target_server_ip,
+        target_server_mac,
+        xid,
+        timeout_secs,
+    ) {
+        Some(x) => x,
+        None => return None,
+    };
     let offer_ip = offer_msg.yiaddr();
     let mut request_msg = v4::Message::default();
     request_msg
@@ -325,9 +330,19 @@ fn request_ip_from_dhcp_server(
 #[command(version, about, long_about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
+#[command(disable_help_flag = true)]
+#[command(disable_version_flag = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+
+    /// 打印帮助信息
+    #[arg(short, long, action = ArgAction::Help)]
+    help: bool,
+
+    /// 打印版本
+    #[arg(short, long, action = ArgAction::Version)]
+    version: bool,
 }
 
 #[derive(Subcommand)]
@@ -368,7 +383,7 @@ enum Commands {
         mac_dst: String,
     },
 
-    /// 向指定的DHCP服务器发送虚假请求，直至地址池耗尽
+    /// 向指定的DHCP服务器发送指定次数的request请求
     Exploit {
         /// 网卡编号，使用list命令获取网卡编号
         #[arg(short, long, value_name = "index")]
