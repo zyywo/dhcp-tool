@@ -1,7 +1,16 @@
-/** u8列表转换为mac地址
-
-比如 `[255, 255, 255, 255, 255, 255] => "ff:ff:ff:ff:ff:ff"`
- */
+/// u8列表转换为mac地址
+///
+/// 比如 `[255, 255, 255, 255, 255, 255] => "ff:ff:ff:ff:ff:ff"`
+///
+/// ```rust
+/// # use dhcp_bl::utils::u8_to_mac;
+/// # assert_eq!(u8_to_mac(&[1, 2, 3]), "01:02:03");
+/// # assert_eq!(u8_to_mac(&[1, 2, 3, 221, 238, 255]), "01:02:03:dd:ee:ff");
+/// # assert_eq!(
+/// #     u8_to_mac(&[255, 255, 255, 255, 255, 255]),
+/// #     "ff:ff:ff:ff:ff:ff"
+/// # );
+/// ```
 pub fn u8_to_mac(u: &[u8]) -> String {
     let mut mac = String::new();
     for i in u {
@@ -12,26 +21,36 @@ pub fn u8_to_mac(u: &[u8]) -> String {
     mac
 }
 
-/**把mac地址转换为u8列表
-
-比如 `01:02:03:dd:ee:ff => [1, 2, 3, 221, 238, 255]`
- */
+/// 把mac地址转换为u8列表
+///
+/// 比如 `01:02:03:dd:ee:ff => [1, 2, 3, 221, 238, 255]`
+/// ```rust
+/// # use dhcp_bl::utils::mac_to_u8;
+/// # assert_eq!(mac_to_u8("01:02:03:dd:ee:ff"), [1, 2, 3, 221, 238, 255]);
+/// ```
 pub fn mac_to_u8(s: &str) -> Vec<u8> {
     let s1 = s.replace(":", "");
-    let val: Vec<u8> = bytes_str_to_u8(s1.as_str()).try_into().unwrap();
+    let val: Vec<u8> = bytes_str_to_u8(s1.as_str()).unwrap();
     val
 }
 
-/**把u16转换为u8列表，比如：
-
-`[0x285c] => [40, 92]`,
-
-`[10332] => [40, 92]`,
-
-`[0xffff] => [255, 255]`，
-
-`[0x0001, 0x285c] => [0, 1, 40, 92]`
-*/
+///把u16转换为u8列表，比如：
+///
+///`[0x285c] => [40, 92]`,
+///
+///`[10332] => [40, 92]`,
+///
+///`[0xffff] => [255, 255]`，
+///
+///`[0x0001, 0x285c] => [0, 1, 40, 92]`
+///```rust
+/// # use dhcp_bl::utils::u16_to_u8;
+/// # assert_eq!(u16_to_u8(&[0xffff]), [255, 255]);
+/// # assert_eq!(u16_to_u8(&[0x0000]), [0, 0]);
+/// # assert_eq!(u16_to_u8(&[65535]), [255, 255]);
+/// # assert_eq!(u16_to_u8(&[0x285c]), [40, 92]);
+/// # assert_eq!(u16_to_u8(&[0x0001, 0x285c]), [0, 1, 40, 92]);
+/// ```
 pub fn u16_to_u8(u: &[u16]) -> Vec<u8> {
     let mut u8_list = Vec::new();
     for i in u {
@@ -43,12 +62,20 @@ pub fn u16_to_u8(u: &[u16]) -> Vec<u8> {
     u8_list
 }
 
-/**把i32转换为u8列表，比如：
-
-`[0xffffff] => [0, 255, 255, 255]`,
-
-`[16777215] => [0, 255, 255, 255]`
-*/
+/// 把u32转换为u8列表，比如：
+///
+/// `[0xffffff] => [0, 255, 255, 255]`,
+///
+/// `[16777215] => [0, 255, 255, 255]`,
+///
+/// `[1,1] => [0, 0, 0, 1, 0, 0,0, 1]`
+///
+/// ```rust
+/// # use dhcp_bl::utils::u32_to_u8;
+/// # assert_eq!(u32_to_u8(&[16777215]), [0, 255, 255, 255]);
+/// # assert_eq!(u32_to_u8(&[0xffffff]), [0, 255, 255, 255]);
+/// # assert_eq!(u32_to_u8(&[1, 1]), [0, 0, 0, 1, 0, 0, 0, 1]);
+/// ```
 pub fn u32_to_u8(i: &[u32]) -> Vec<u8> {
     let mut u8_list = Vec::new();
     for j in i {
@@ -64,30 +91,35 @@ pub fn u32_to_u8(i: &[u32]) -> Vec<u8> {
     u8_list
 }
 
-/** 把字节字符串转为u8列表
-
-比如 `"ff00ff10" => [255, 0, 255, 16]`
- */
-fn bytes_str_to_u8(s: &str) -> Vec<u8> {
+/// 把字节字符串转为u8列表
+///
+/// 比如 `"ff00ff10" => Some([255, 0, 255, 16])`，`"fff" => None`
+///
+fn bytes_str_to_u8(s: &str) -> Option<Vec<u8>> {
     let mut return_val = Vec::new();
 
-    let mut siter = s.chars().enumerate();
-    while let Some((i, v)) = siter.next() {
-        if i % 2 != 0 {
-            continue;
-        };
-        let h = match v.to_digit(16) {
-            Some(x) => x,
-            None => 255,
-        };
-        let l = match siter.next().unwrap().1.to_digit(16) {
-            Some(x) => x,
-            None => 255,
-        };
-        let a: u8 = (h * 16 + l).try_into().unwrap();
-        return_val.push(a);
+    let mut i = s.chars();
+    loop {
+        if let Some(j) = i.next() {
+            let h = match j.to_digit(16) {
+                Some(x) => x,
+                None => return None,
+            };
+
+            let l = match i.next() {
+                Some(x) => match x.to_digit(16) {
+                    Some(z) => z,
+                    None => return None,
+                },
+                None => return None,
+            };
+            let a = (h << 4) | l;
+            return_val.push(a as u8);
+        } else {
+            break;
+        }
     }
-    return_val
+    Some(return_val)
 }
 
 /**计算数据的校验和
@@ -127,39 +159,16 @@ mod utils_tests {
     use super::*;
 
     #[test]
-    fn test_str_to_u8() {
-        assert_eq!(bytes_str_to_u8("ff00ff10"), [255, 0, 255, 16]);
+    fn test_bytes_str_to_u8() {
+        assert_eq!(bytes_str_to_u8("ff00ff10"), Some(vec![255, 0, 255, 16]));
+        assert_eq!(bytes_str_to_u8("ff00ff1"), None);
     }
 
-    #[test]
-    fn test_mac_to_u8() {
-        assert_eq!(mac_to_u8("01:02:03:dd:ee:ff"), [1, 2, 3, 221, 238, 255]);
-    }
-
-    #[test]
-    fn test_u16_to_u8() {
-        assert_eq!(u16_to_u8(&[0xffff]), [255, 255]);
-        assert_eq!(u16_to_u8(&[0x0000]), [0, 0]);
-        assert_eq!(u16_to_u8(&[65535]), [255, 255]);
-        assert_eq!(u16_to_u8(&[0x285c]), [40, 92]);
-        assert_eq!(u16_to_u8(&[0x0001, 0x285c]), [0, 1, 40, 92]);
-    }
-
-    #[test]
-    fn test_i32_to_u8() {
-        assert_eq!(u32_to_u8(&[16777215]), [0, 255, 255, 255]);
-        assert_eq!(u32_to_u8(&[0xffffff]), [0, 255, 255, 255]);
-    }
-
-    #[test]
-    fn test_u8_to_mac() {
-        assert_eq!(u8_to_mac(&[1, 2, 3]), "01:02:03");
-        assert_eq!(u8_to_mac(&[1, 2, 3, 221, 238, 255]), "01:02:03:dd:ee:ff");
-        assert_eq!(
-            u8_to_mac(&[255, 255, 255, 255, 255, 255]),
-            "ff:ff:ff:ff:ff:ff"
-        );
-    }
+    // #[test]
+    // #[should_panic]
+    // fn test_should_panic_str_to_u8() {
+    //     bytes_str_to_u8("fff");
+    // }
 
     #[test]
     fn test_checksum() {
