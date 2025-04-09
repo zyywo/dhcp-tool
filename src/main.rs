@@ -1,6 +1,6 @@
 use clap::{ArgAction, Parser, Subcommand};
 use core::net::Ipv4Addr;
-use dhcp_client::utils::{mac_to_u8, u16_to_u8, u32_to_u8, u8_to_mac, udp_ip_checksum};
+use dhcp_bl::utils::{mac_to_u8, u16_to_u8, u32_to_u8, u8_to_mac, checksum};
 use dhcproto::v4::Message;
 use dhcproto::{v4, Decodable, Encodable, Encoder};
 use pnet::datalink::Channel::Ethernet;
@@ -40,7 +40,7 @@ fn build_dhcp_ethernet_packet(
         &[0x00, 0x11, udp_len_u8[0], udp_len_u8[1]],
     ]
     .concat();
-    udp_pkg.set_checksum(udp_ip_checksum(
+    udp_pkg.set_checksum(checksum(
         [udp_fake_header.as_slice(), udp_pkg.packet()]
             .concat()
             .as_slice(),
@@ -60,7 +60,7 @@ fn build_dhcp_ethernet_packet(
     ipv4_pkg.set_next_level_protocol(pnet::packet::ip::IpNextHeaderProtocol(17));
     ipv4_pkg.set_destination(ip_dst);
     ipv4_pkg.set_source(ip_src);
-    ipv4_pkg.set_checksum(udp_ip_checksum(&ipv4_pkg.packet()[..20]));
+    ipv4_pkg.set_checksum(checksum(&ipv4_pkg.packet()[..20]));
     ipv4_pkg.set_payload(&udp_buf);
     // dbg!(&ipv4_pkg);
 

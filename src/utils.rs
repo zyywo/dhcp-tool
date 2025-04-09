@@ -90,28 +90,36 @@ fn bytes_str_to_u8(s: &str) -> Vec<u8> {
     return_val
 }
 
-/**计算UDP报文与IP报文的头部校验和，如果报文不是偶数个，会自动补一个全零字节。
+/**计算数据的校验和
 
-UDP校验和计算：4字节源IP，4字节目的IP，2字节协议类型（UDP恒为0x0011），2字节UDP长度，最后是UDP载荷（计算前UDP报文的校验和字段应为0）。
+1. 把数据分割成16位的word（字）
+2. 把所有word相加得到计算和
+3. 如果计算和溢出就处理溢出：把溢出位放到末尾相加，比如计算和是`203b4`，则：`03b4+2=03b6`
+4. 取计算和的反码就是校验和,
 
-IP校验和计算：只计算整个头部（计算前IP报文的校验和字段应为0）。
+
+**UDP校验和计算**：伪首部（12字节） + UDP首部（8字节） + UDP载荷
+
+伪首部：4字节源IP，4字节目的IP，2字节协议类型（UDP恒为0x0011），2字节UDP报文长度
+
+UDP首部：2字节源端口，2字节目的端口，2字节UDP报文长度，2字节校验和（计算前校验和置0）
+
+**IP头部校验和计算**：只计算整个头部（计算前校验和字段应为0）。
 */
-pub fn udp_ip_checksum(packet: &[u8]) -> u16 {
-    let mut sum: u16 = 0;
-    for j in packet.chunks(2) {
-        // 这里相当于补0后相加
-        let (a, overflow) = if j.len() < 2 {
-            sum.overflowing_add(j[0] as u16 * 256)
+pub fn checksum(packet: &[u8]) -> u16 {
+    let mut sum: u32 = 0;
+    packet.chunks(2).for_each(|b| {
+        let word = if b.len() < 2 {
+            b[0] as u16
         } else {
-            let word: u16 = j[0] as u16 * 256 + j[1] as u16;
-            sum.overflowing_add(word)
+            (b[0] as u16) << 8 | b[1] as u16
         };
-        sum = a;
-        if overflow {
-            sum += 1;
-        }
+        sum += word as u32;
+    });
+    while (sum >> 16) > 0 {
+        sum = (sum >> 16) + (sum & 0xffff);
     }
-    !sum
+    !(sum as u16)
 }
 
 #[cfg(test)]
@@ -154,20 +162,38 @@ mod utils_tests {
     }
 
     #[test]
-    fn test_udp_checksum() {
+    fn test_checksum() {
+        let mut check_sum;
+        let mut wannted;
+
+        check_sum = checksum(&[
+            0x10, 0x10, 0x20, 0x20, 0x00, 0x14, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc,
+        ]);
+        wannted = 0xcc52;
         assert_eq!(
-            udp_ip_checksum(&[
-                0x10, 0x10, 0x20, 0x20, 0x00, 0x14, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc,
-            ]),
-            0xcc52
+            check_sum, wannted,
+            "计算结果0x{:04x}， 期望结果：0x{:04x}",
+            check_sum, wannted
         );
+
+        check_sum = checksum(&[
+            0x0a, 0xaa, 0x3b, 0xbf, 0xd2, 0x0e, 0x96, 0x0d, 0x00, 0x11, 0x00, 0x1c, 0xd1, 0x23,
+            0x27, 0x42, 0x00, 0x1c, 0x00, 0x00, 0x6c, 0x41, 0x56, 0x61, 0x00, 0x00, 0x0e, 0x00,
+            0xf8, 0xb6, 0xd4, 0x01, 0x93, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ]);
+        wannted = 0x285c;
         assert_eq!(
-            udp_ip_checksum(&[
-                0x0a, 0xaa, 0x3b, 0xbf, 0xd2, 0x0e, 0x96, 0x0d, 0x00, 0x11, 0x00, 0x1c, 0xd1, 0x23,
-                0x27, 0x42, 0x00, 0x1c, 0x00, 0x00, 0x6c, 0x41, 0x56, 0x61, 0x00, 0x00, 0x0e, 0x00,
-                0xf8, 0xb6, 0xd4, 0x01, 0x93, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            ]),
-            0x285c
+            check_sum, wannted,
+            "计算结果0x{:04x}， 期望结果：0x{:04x}",
+            check_sum, wannted
+        );
+
+        check_sum = checksum(&[0x84, 0xeb, 0xdf, 0xea, 0x9e, 0xdf]);
+        wannted = 0xfc49;
+        assert_eq!(
+            check_sum, wannted,
+            "计算结果0x{:04x}， 期望结果：0x{:04x}",
+            check_sum, wannted
         );
     }
 }
