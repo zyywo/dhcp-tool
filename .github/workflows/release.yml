@@ -52,9 +52,9 @@ jobs:
     - name: Build
       run: |
         cargo build --release
-        mv target/release/$BUILD_NAME.exe target/release/$BUILD_NAME_windows_v${{ needs.release.outputs.version }}.exe
+        mv target/release/${{ env.BUILD_NAME }}.exe target/release/${{ env.BUILD_NAME }}_windows_v${{ needs.release.outputs.version }}.exe
     - run: |
-        gh release upload v${{ needs.release.outputs.version }} target/release/$BUILD_NAME_windows_v${{ needs.release.outputs.version }}.exe
+        gh release upload v${{ needs.release.outputs.version }} target/release/${{ env.BUILD_NAME }}_windows_v${{ needs.release.outputs.version }}.exe
   
   build-linux:
     needs: release
@@ -62,11 +62,9 @@ jobs:
     permissions: write-all
     steps:
     - uses: actions/checkout@v4
-    # - name: Install fltk build dependencies
-    #   run: sudo apt-get install -y libx11-dev libxext-dev libxft-dev libxinerama-dev libxcursor-dev libxrender-dev libxfixes-dev libpango1.0-dev libgl1-mesa-dev libglu1-mesa-dev
     - name: Build
       run: |
         cargo build --release
-        mv target/release/$BUILD_NAME target/release/$BUILD_NAME_linux_v${{ needs.release.outputs.version }}
+        mv target/release/${{ env.BUILD_NAME }} target/release/${{ env.BUILD_NAME }}_linux_v${{ needs.release.outputs.version }}
     - run: |
-        gh release upload v${{ needs.release.outputs.version }} target/release/$BUILD_NAME_linux_v${{ needs.release.outputs.version }}
+        gh release upload v${{ needs.release.outputs.version }} target/release/${{ env.BUILD_NAME }}_linux_v${{ needs.release.outputs.version }}
