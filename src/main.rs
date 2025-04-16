@@ -1,6 +1,6 @@
 use clap::{ArgAction, Parser, Subcommand};
 use core::net::Ipv4Addr;
-use dhcp_bl::utils::{mac_to_u8, u16_to_u8, u32_to_u8, u8_to_mac, checksum};
+use dhcp_bl::utils::{checksum, mac_to_u8, u16_to_u8, u32_to_u8, u8_to_mac};
 use dhcproto::v4::Message;
 use dhcproto::{v4, Decodable, Encodable, Encoder};
 use pnet::datalink::Channel::Ethernet;
@@ -135,14 +135,13 @@ fn detect_dhcp_server(
     timeout_secs: u64,
 ) {
     let interface_match = |iface: &NetworkInterface| iface.index == interface;
-    // Find the network interface with the provided name
     let interfaces = datalink::interfaces();
     let interface = interfaces
         .into_iter()
         .filter(interface_match)
         .next()
         .expect(format!("没有这个接口 {}", interface).as_str());
-    // Create a new channel, dealing with layer 2 packets
+
     let (mut tx, mut rx) = match datalink::channel(&interface, Default::default()) {
         Ok(Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unhandled channel type"),
@@ -183,6 +182,7 @@ fn detect_dhcp_server(
     );
 
     println!("网络内有以下DHCP服务器：");
+    let mut servers = vec![];
     let time_instant = Instant::now();
     loop {
         let d = time_instant.elapsed();
@@ -213,7 +213,10 @@ fn detect_dhcp_server(
                     .get(v4::OptionCode::ServerIdentifier)
                     .unwrap()
                 {
-                    println!("DHCP服务器：{}，MAC：{}", ip, eth_packet.get_source());
+                    if !servers.contains(ip) {
+                        servers.push(*ip);
+                        println!("DHCP服务器：{}，MAC：{}", ip, eth_packet.get_source());
+                    }
                 }
             }
             Err(e) => {
@@ -359,7 +362,7 @@ enum Commands {
         /// 超时时间（秒）
         #[arg(short, long)]
         #[arg(default_value_t = 20)]
-        #[arg(value_parser = clap::value_parser!(u64).range(1..))]
+        #[arg(value_parser = clap::value_parser!(u64).range(5..))]
         timeout: u64,
 
         /// 发送报文的源IP

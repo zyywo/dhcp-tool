@@ -1,6 +1,6 @@
 [package]
 name = "dhcp-bl"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "检查网络内有哪些DHCP服务器，向指定的DHCP服务器发送request请求\n提示：不能使用无线网卡。"
 
