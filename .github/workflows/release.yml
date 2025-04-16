@@ -1,0 +1,72 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  CARGO_TERM_COLOR: always
+  BUILD_NAME: dhcp-tool
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions: write-all
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get version
+        id: get-version
+        run: |
+          echo "version=$(sed -nr 's/^version = "([0-9.]+)"/\1/p' Cargo.toml)" >> $GITHUB_OUTPUT
+      # - name: Check if release exists
+      #   id: check-release
+      #   run: |
+      #     gh release list --json tagName | grep -q ${{ steps.get-version.outputs.version }}
+      #     if [ $? -eq 0 ]; then
+      #       echo "true"
+      #       echo "release_exists=true" >> $GITHUB_OUTPUT
+      #     else
+      #       echo "false"
+      #       echo "release_exists=false" >> $GITHUB_OUTPUT
+      #     fi
+      # - if: ${{ steps.check-release.outputs.release_exists == 'false' }}
+      - run: |
+          gh release create v${{ steps.get-version.outputs.version }} --title v${{ steps.get-version.outputs.version }} Packet.lib
+
+  build-windows:
+    needs: release
+    runs-on: windows-latest
+    permissions: write-all
+    steps:
+    - uses: actions/checkout@v4
+    # - name: Install CMake
+    #   uses: ssrobins/install-cmake@v1
+    #   with:
+    #     version: 3.24.3
+    - name: Build
+      run: |
+        cargo build --release
+        mv target/release/$BUILD_NAME.exe target/release/$BUILD_NAME_windows_v${{ needs.release.outputs.version }}.exe
+    - run: |
+        gh release upload v${{ needs.release.outputs.version }} target/release/$BUILD_NAME_windows_v${{ needs.release.outputs.version }}.exe
+  
+  build-linux:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+    - uses: actions/checkout@v4
+    # - name: Install fltk build dependencies
+    #   run: sudo apt-get install -y libx11-dev libxext-dev libxft-dev libxinerama-dev libxcursor-dev libxrender-dev libxfixes-dev libpango1.0-dev libgl1-mesa-dev libglu1-mesa-dev
+    - name: Build
+      run: |
+        cargo build --release
+        mv target/release/$BUILD_NAME target/release/$BUILD_NAME_linux_v${{ needs.release.outputs.version }}
+    - run: |
+        gh release upload v${{ needs.release.outputs.version }} target/release/$BUILD_NAME_linux_v${{ needs.release.outputs.version }}
