@@ -184,8 +184,17 @@ fn detect_dhcp_server(
     println!("网络内有以下DHCP服务器：");
     let mut servers = vec![];
     let time_instant = Instant::now();
+    let mut resend_flag = false;
+
     loop {
         let d = time_instant.elapsed();
+        if d.as_secs() == timeout_secs / 2 && !resend_flag {
+            tx.send_to(
+                &build_dhcp_ethernet_packet(ip_src, ip_dst, mac_src, mac_dst, &msg),
+                None,
+            );
+            resend_flag = true;
+        }
         if d.as_secs() > timeout_secs {
             break;
         }
@@ -361,7 +370,7 @@ enum Commands {
 
         /// 超时时间（秒）
         #[arg(short, long)]
-        #[arg(default_value_t = 20)]
+        #[arg(default_value_t = 10)]
         #[arg(value_parser = clap::value_parser!(u64).range(5..))]
         timeout: u64,
 
@@ -428,8 +437,8 @@ enum Commands {
         mac_dst: String,
 
         /// 目标DHCP服务器的IP地址
-        #[arg(long = "server", value_name = "IP")]
-        target_server_ip: String,
+        #[arg(short, long = "server", value_name = "IP")]
+        server_ip: String,
 
         /// 目标DHCP服务器的MAC地址（可不设置）
         #[arg(long = "server-mac", value_name = "MAC")]
@@ -483,7 +492,7 @@ fn main() {
             ip_src,
             ip_dst,
             mac_dst,
-            target_server_ip,
+            server_ip,
             target_server_mac,
             timeout,
         } => {
@@ -500,7 +509,7 @@ fn main() {
                     mac_src,
                     Ipv4Addr::from_str(&ip_dst).unwrap(),
                     MacAddr::from_str(&mac_dst).unwrap(),
-                    Ipv4Addr::from_str(&target_server_ip).unwrap(),
+                    Ipv4Addr::from_str(&server_ip).unwrap(),
                     match target_server_mac {
                         Some(x) => Some(MacAddr::from_str(x).unwrap()),
                         None => None,
